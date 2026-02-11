@@ -43,10 +43,16 @@ Close the current tmux session:
 workspace close
 ```
 
-Close all nvim/vim instances in the current session:
+Kill the tmux session and remove the worktree for the current branch:
 
 ```sh
-workspace minimize
+workspace remove
+```
+
+Or specify a branch:
+
+```sh
+workspace remove feature/old-feature
 ```
 
 ### Worktree mode
@@ -61,12 +67,6 @@ Create with automatic setup (runs `$WORKSPACE_INTERNAL_SETUP_CMD`):
 
 ```sh
 workspace --worktree create feature/api-refactor --setup
-```
-
-Remove a worktree:
-
-```sh
-workspace --worktree remove feature/old-feature
 ```
 
 Clean up all unused worktrees:
@@ -90,7 +90,7 @@ Set these environment variables in your shell configuration:
 export WORKSPACE_INTERNAL_LAYOUT="2v,4g"
 
 # Command to run after creating a worktree with --setup
-export WORKSPACE_INTERNAL_SETUP_CMD="pnpm install && pnpm build"
+export WORKSPACE_INTERNAL_SETUP_CMD="bun install && bun build"
 
 # Variables forwarded to tmux sessions (worktree_ prefix is stripped)
 export worktree_API_URL="http://localhost:3000"
@@ -112,9 +112,8 @@ export worktree_NODE_ENV="development"
 ```
 workspace open [path]                  Open directory in tmux session (fzf picker if no path)
 workspace close [session_name]         Kill tmux session
-workspace minimize [session_name]      Close all nvim/vim panes in session
+workspace remove [branch_name]         Kill tmux session and remove git worktree
 workspace --worktree create <branch>   Create git worktree + tmux session
-workspace --worktree remove [branch]   Remove git worktree
 workspace --worktree prune [--force]   Remove all unused worktrees
 workspace help                         Show usage
 workspace --version                    Show version
@@ -125,11 +124,3 @@ workspace --version                    Show version
 ```sh
 man workspace
 ```
-
-## License
-
-MIT
-
-## Author
-
-[@sjdonado](https://github.com/sjdonado)

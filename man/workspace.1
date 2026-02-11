@@ -11,8 +11,8 @@ workspace \- manage tmux sessions and git worktrees
 .RI [ session_name ]
 .br
 .B workspace
-.B minimize
-.RI [ session_name ]
+.B remove
+.RI [ branch_name ]
 .br
 .B workspace
 .B \-\-worktree
@@ -98,12 +98,14 @@ Kill the specified tmux session. If
 .I session_name
 is omitted and running inside tmux, uses the current session name. Otherwise, an error is returned.
 .TP
-.BI "minimize " [session_name]
-Close all nvim/vim instances in the specified tmux session by sending
-.B :qa!
-to each pane running vim or nvim. If
-.I session_name
-is omitted and running inside tmux, uses the current session.
+.BI "remove " [branch_name]
+Kill the tmux session and remove the git worktree for the specified branch. If
+.I branch_name
+is omitted, uses the current branch. Protected branches (main, master, _main, _master) cannot be removed. Any processes holding files in the worktree directory are automatically terminated.
+.IP
+This is a convenience shorthand for killing the session and removing the worktree in one step, without requiring the
+.B \-\-worktree
+flag.
 .TP
 .B help
 Display usage information and exit. Also accepts
@@ -262,8 +264,11 @@ Open a specific directory:
 Close current tmux session:
 .B workspace close
 .TP
-Close all nvim instances in current session:
-.B workspace minimize
+Kill session and remove worktree for current branch:
+.B workspace remove
+.TP
+Kill session and remove worktree for a specific branch:
+.B workspace remove feature/old-feature
 .SS Worktree Mode
 .TP
 Create a worktree for a feature branch:
@@ -320,8 +325,8 @@ workspace close
 # Later, reopen the worktree
 workspace open
 
-# When feature is merged, clean up
-workspace \-\-worktree remove feature/new-api
+# When feature is merged, kill session and remove worktree
+workspace remove feature/new-api
 
 # Or clean up all unused worktrees at once
 workspace \-\-worktree prune
