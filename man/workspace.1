@@ -1,0 +1,382 @@
+.TH workspace 1 "February 2025" "workspace 1.0" "User Commands"
+.SH NAME
+workspace \- manage tmux sessions and git worktrees
+.SH SYNOPSIS
+.B workspace
+.B open
+.RI [ path ]
+.br
+.B workspace
+.B close
+.RI [ session_name ]
+.br
+.B workspace
+.B minimize
+.RI [ session_name ]
+.br
+.B workspace
+.B \-\-worktree
+.B create
+.I branch_name
+.RB [ \-\-setup ]
+.br
+.B workspace
+.B \-\-worktree
+.B remove
+.RI [ branch_name ]
+.br
+.B workspace
+.B \-\-worktree
+.B prune
+.RB [ \-\-force ]
+.br
+.B workspace
+.B help
+.SH DESCRIPTION
+.B workspace
+is a unified tool for managing tmux sessions with two modes:
+.B sessionizer mode
+for quick directory-based sessions, and
+.B worktree mode
+for full git worktree management.
+.PP
+In sessionizer mode (default), the tool helps you quickly open existing directories in tmux sessions. It uses fzf to find git projects (both regular repositories and worktrees) in your current directory tree.
+.PP
+In worktree mode (with
+.BR \-\-worktree ),
+the tool provides full git worktree capabilities: creating new worktrees for branches, managing their lifecycle, and automatically setting up tmux sessions with custom layouts. When creating a worktree, the tool creates a git worktree in a sibling directory, sets up a tmux session with a configurable layout, copies environment and certificate files from the parent worktree, and optionally runs setup commands.
+.SH MODES
+.TP
+.B Sessionizer Mode (Default)
+Without the
+.B \-\-worktree
+flag, the tool operates as a tmux session manager. The
+.B open
+command finds existing git projects using fzf and creates tmux sessions for them. This mode is ideal for:
+.RS
+.IP \(bu 2
+Quick navigation between projects
+.IP \(bu 2
+Opening existing worktrees
+.IP \(bu 2
+Working with any git repository
+.IP \(bu 2
+Simple tmux session management
+.RE
+.TP
+.B Worktree Mode
+With the
+.B \-\-worktree
+flag, the tool provides full git worktree lifecycle management. Additional commands (create, remove, prune) become available for managing git worktrees. This mode is ideal for:
+.RS
+.IP \(bu 2
+Feature branch development
+.IP \(bu 2
+Working on multiple branches simultaneously
+.IP \(bu 2
+Automated worktree setup with custom layouts
+.IP \(bu 2
+Managing worktree lifecycle (creation, pruning)
+.RE
+.SH COMMANDS
+.SS Common Commands (Both Modes)
+.TP
+.BI "open " [path]
+Open an existing directory in a tmux session. If no path is provided, uses fzf to interactively select from git projects (repositories and worktrees) found up to 3 levels deep from the current directory. The tool searches for directories containing
+.B .git
+(both directories for regular repos and files for worktrees).
+.IP
+If a tmux session for the directory already exists, attaches to it (or switches to it if already inside tmux). Otherwise, creates a new session with the configured layout.
+.IP
+Session names are derived from the directory path. If the target is within the current directory, the relative path is used; otherwise, the basename is used. Dots and slashes are replaced with underscores for tmux compatibility.
+.TP
+.BI "close " [session_name]
+Kill the specified tmux session. If
+.I session_name
+is omitted and running inside tmux, uses the current session name. Otherwise, an error is returned.
+.TP
+.BI "minimize " [session_name]
+Close all nvim/vim instances in the specified tmux session by sending
+.B :qa!
+to each pane running vim or nvim. If
+.I session_name
+is omitted and running inside tmux, uses the current session.
+.TP
+.B help
+Display usage information and exit. Also accepts
+.B \-\-help
+and
+.BR \-h .
+.SS Worktree Mode Commands (Require \-\-worktree)
+.TP
+.BI "create " branch_name " [--setup]"
+Create a new git worktree for the specified branch and open a tmux session. The worktree is created as a sibling directory to the main repository. The tool automatically:
+.RS
+.IP \(bu 2
+Fetches latest changes from remote
+.IP \(bu 2
+Creates a worktree from a remote branch if it exists on origin, or creates a new local branch
+.IP \(bu 2
+Sets up a tmux session with the configured layout
+.IP \(bu 2
+Copies .env and .pem files from the parent repository
+.IP \(bu 2
+Propagates worktree_* environment variables to the tmux session
+.RE
+.IP
+If the worktree already exists, it is reused. The tool performs a smart pull with safety checks:
+.RS
+.IP \(bu 2
+Skips pull for local-only branches (no remote tracking)
+.IP \(bu 2
+Skips pull if there are uncommitted changes
+.IP \(bu 2
+Fast-forwards if possible
+.IP \(bu 2
+Warns if the branch has diverged from remote
+.RE
+.IP
+Any existing tmux session for the branch is killed and recreated with the current layout configuration.
+.IP
+Use the
+.B \-\-setup
+flag to run the command specified in
+.B WORKSPACE_INTERNAL_SETUP_CMD
+after creating the worktree. The command is sent to the first pane of the tmux session.
+.TP
+.BI "remove " [branch_name]
+Remove the git worktree for the specified branch. If
+.I branch_name
+is omitted, uses the current branch. Protected branches (main, master, _main, _master) cannot be removed. Any processes holding files in the worktree directory are automatically terminated.
+.TP
+.BI "prune " [--force]
+Remove all worktrees that have no active tmux session. By default, worktrees with uncommitted changes are skipped. This command preserves:
+.RS
+.IP \(bu 2
+The main worktree
+.IP \(bu 2
+Protected branches (main, master, _main, _master)
+.IP \(bu 2
+Worktrees with active tmux sessions
+.IP \(bu 2
+Worktrees with uncommitted changes (unless
+.B \-\-force
+is used)
+.RE
+.IP
+Use the
+.B \-\-force
+flag to also remove worktrees that have uncommitted changes. Stray processes holding files in the worktree are killed automatically if the initial removal fails.
+.SH ENVIRONMENT
+.TP
+.B WORKSPACE_INTERNAL_LAYOUT
+Defines the tmux layout configuration for new sessions. Uses a compact format:
+.IR <count><direction> , <count><direction> ,...
+where
+.I count
+is the number of panes and
+.I direction
+is one of:
+.RS
+.IP \(bu 2
+.B v
+\- vertical splits (side-by-side, using even-horizontal layout)
+.IP \(bu 2
+.B h
+\- horizontal splits (stacked, using even-vertical layout)
+.IP \(bu 2
+.B g
+\- grid layout (equal squares, using tiled layout)
+.RE
+.IP
+Each comma-separated segment creates a new tmux window. The first pane of the first window is selected after creation.
+.IP
+.B Default:
+1v (single pane, single window)
+.IP
+.B Examples:
+.RS
+.IP \(bu 2
+.B 2v
+\- One window with 2 vertical panes (side-by-side)
+.IP \(bu 2
+.B 3h
+\- One window with 3 horizontal panes (stacked)
+.IP \(bu 2
+.B 4g
+\- One window with 4 panes in a 2x2 grid
+.IP \(bu 2
+.B 2v,3h,1v
+\- Three windows: first has 2 vertical panes, second has 3 horizontal panes, third has 1 pane
+.RE
+.TP
+.B WORKSPACE_INTERNAL_SETUP_CMD
+Command to run after creating a new worktree when
+.B \-\-setup
+is specified. The command is sent as keystrokes to the first pane of the tmux session. Typically used for installing dependencies or running build commands.
+.IP
+.B Example:
+export WORKSPACE_INTERNAL_SETUP_CMD="pnpm i && pnpm build"
+.TP
+.B worktree_*
+Any environment variable prefixed with
+.B worktree_
+(except those starting with
+.BR worktree_INTERNAL )
+will be set in the tmux session environment with the prefix removed. For example,
+.B worktree_API_KEY
+becomes
+.B API_KEY
+in the tmux session.
+.SH FILES
+.TP
+.I .env
+When creating a worktree, all
+.B .env
+files are copied from the parent worktree to the new worktree, preserving directory structure. Existing
+.B .env
+files in the target worktree are never overwritten.
+.TP
+.I *.pem
+All
+.B .pem
+certificate files are copied from the parent worktree to the new worktree, preserving directory structure. Existing
+.B .pem
+files in the target worktree are never overwritten.
+.SH EXAMPLES
+.SS Sessionizer Mode
+.TP
+Open a project using fzf to select from current directory:
+.B workspace open
+.TP
+Open a specific directory:
+.B workspace open ~/projects/myapp
+.TP
+Close current tmux session:
+.B workspace close
+.TP
+Close all nvim instances in current session:
+.B workspace minimize
+.SS Worktree Mode
+.TP
+Create a worktree for a feature branch:
+.B workspace \-\-worktree create feature/user-auth
+.TP
+Create worktree and run setup commands:
+.B workspace \-\-worktree create feature/api-refactor \-\-setup
+.TP
+Open an existing worktree (no \-\-worktree needed):
+.B workspace open
+.TP
+Remove worktree for a specific branch:
+.B workspace \-\-worktree remove feature/old-feature
+.TP
+Remove current branch's worktree:
+.B workspace \-\-worktree remove
+.TP
+Clean up all unused worktrees:
+.B workspace \-\-worktree prune
+.TP
+Force-clean all unused worktrees, including those with uncommitted changes:
+.B workspace \-\-worktree prune \-\-force
+.SH WORKFLOW EXAMPLES
+.SS Quick Project Switching
+.nf
+.RS
+# Navigate to your projects directory
+cd ~/projects
+
+# Use fzf to find and open any project
+workspace open
+
+# Work in the project...
+
+# Close when done
+workspace close
+.RE
+.fi
+.SS Feature Development with Worktrees
+.nf
+.RS
+# Configure layout and setup command
+export WORKSPACE_INTERNAL_LAYOUT="2v,3h"
+export WORKSPACE_INTERNAL_SETUP_CMD="pnpm install"
+
+# Create a new worktree with auto-setup
+workspace \-\-worktree create feature/new-api \-\-setup
+
+# Work on the feature...
+
+# Close the session (worktree remains on disk)
+workspace close
+
+# Later, reopen the worktree
+workspace open
+
+# When feature is merged, clean up
+workspace \-\-worktree remove feature/new-api
+
+# Or clean up all unused worktrees at once
+workspace \-\-worktree prune
+.RE
+.fi
+.SH CONFIGURATION
+Set environment variables in your shell configuration:
+.PP
+.nf
+.RS
+# Tmux layout: 2 vertical panes in first window, 4-pane grid in second
+export WORKSPACE_INTERNAL_LAYOUT="2v,4g"
+
+# Setup command for new worktrees
+export WORKSPACE_INTERNAL_SETUP_CMD="pnpm install && pnpm build"
+
+# Variables forwarded to tmux sessions (prefix removed)
+export worktree_API_URL="http://localhost:3000"
+export worktree_NODE_ENV="development"
+.RE
+.fi
+.PP
+.B Project Discovery:
+The
+.B open
+command without arguments uses
+.BR find (1)
+to search for git projects up to 3 levels deep from the current directory. It finds both regular git repositories (directories with
+.B .git
+directory) and git worktrees (directories with
+.B .git
+file pointing to parent repository).
+.SH DEPENDENCIES
+.TP
+.B Required:
+.BR bash (1),
+.BR tmux (1),
+.BR git (1)
+.TP
+.B Optional:
+.BR fzf (1)
+(interactive project selection),
+.BR lsof (1)
+(process cleanup during worktree removal)
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 1
+Error (missing branch name, protected branch removal, worktree not found, invalid directory, etc.)
+.SH SEE ALSO
+.BR git-worktree (1),
+.BR tmux (1),
+.BR fzf (1),
+.BR fish (1),
+.BR zsh (1)
+.SH AUTHOR
+.B @sjdonado
+.UR https://github.com/sjdonado
+.UE
+.SH BUGS
+Report bugs at:
+.UR https://github.com/sjdonado/tmux-workspace/issues
+.UE
