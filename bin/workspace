@@ -293,7 +293,7 @@ case $command in
     --version|-v)
         echo "workspace version $VERSION"
         echo ""
-        echo "workspace maintained by @sjdonado (github.com/sjdonado/tmux-workspace)."
+        echo "maintained by @sjdonado (github.com/sjdonado/tmux-workspace)."
         exit 0
         ;;
     *)
