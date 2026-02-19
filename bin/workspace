@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 
 # Terminal mode detection (tmux > ghostty > none)
 if [[ -n "$TMUX" ]]; then
@@ -84,7 +84,7 @@ cmd_remove_single() {
     local workdir="$base_path/../${branch_name}"
     [[ ! -d "$workdir" ]] && { echo "Cannot resolve worktree for ${branch_name}"; exit 1; }
     local abs
-    abs=$(command -v realpath &>/dev/null && realpath "$workdir" || cd "$workdir" && pwd -P)
+    abs=$(command -v realpath &>/dev/null && realpath "$workdir" || (cd "$workdir" && pwd -P))
 
     local reg
     reg=$(git worktree list --porcelain | awk '$1=="worktree"{print $2}')
@@ -135,14 +135,18 @@ cmd_prune() {
             continue
         fi
 
+        # Check working tree status once
+        local wt_status
+        wt_status=$(cd "$worktree_path" && git status --porcelain)
+
         # Check if working tree is clean (skip this check if --force is used)
-        if [[ "$force_prune" != "true" ]] && [[ -n $(cd "$worktree_path" && git status --porcelain) ]]; then
+        if [[ "$force_prune" != "true" ]] && [[ -n "$wt_status" ]]; then
             echo "⏭  Skipping $branch_name (uncommitted changes)"
             continue
         fi
 
         # Safe to remove
-        if [[ "$force_prune" == "true" ]] && [[ -n $(cd "$worktree_path" && git status --porcelain) ]]; then
+        if [[ "$force_prune" == "true" ]] && [[ -n "$wt_status" ]]; then
             echo "🗑  Removing $branch_name (forced, uncommitted changes present)"
         else
             echo "🗑  Removing $branch_name (no session, clean working tree)"
@@ -173,7 +177,7 @@ cmd_worktree_remove() {
     local workdir="$base_path/../${branch_name}"
     [[ ! -d "$workdir" ]] && { echo "Cannot resolve worktree for ${branch_name}"; exit 1; }
     local abs
-    abs=$(command -v realpath &>/dev/null && realpath "$workdir" || cd "$workdir" && pwd -P)
+    abs=$(command -v realpath &>/dev/null && realpath "$workdir" || (cd "$workdir" && pwd -P))
 
     local reg
     reg=$(git worktree list --porcelain | awk '$1=="worktree"{print $2}')
@@ -330,7 +334,8 @@ backend_kill_session() {
             fi
             ;;
         ghostty)
-            echo "Note: Close the '$name' Ghostty tab manually."
+            echo "Warning: Cannot close Ghostty tabs programmatically. Close the '$name' tab manually."
+            return 1
             ;;
     esac
 }
@@ -448,7 +453,7 @@ copy_env_files() {
 
     echo "Copying .env files from $source_dir to $target_dir"
 
-    find "$source_dir" -name ".env" -type f | while IFS= read -r env_file; do
+    find "$source_dir" -maxdepth 5 -name "node_modules" -prune -o -name ".env" -type f -print | while IFS= read -r env_file; do
         local rel_path="${env_file#$source_dir/}"
         local target_file="$target_dir/$rel_path"
         local target_parent
@@ -471,7 +476,7 @@ copy_pem_files() {
 
     echo "Copying .pem files from $source_dir to $target_dir"
 
-    find "$source_dir" -name "*.pem" -type f | while IFS= read -r pem_file; do
+    find "$source_dir" -maxdepth 5 -name "node_modules" -prune -o -name "*.pem" -type f -print | while IFS= read -r pem_file; do
         local rel_path="${pem_file#$source_dir/}"
         local target_file="$target_dir/$rel_path"
         local target_parent
@@ -489,21 +494,22 @@ copy_pem_files() {
 }
 
 list_worktree_branches() {
-    local base_path
-    base_path=$(git rev-parse --show-toplevel)
+    # Single call to git worktree list, reused for both outputs
+    local worktree_porcelain
+    worktree_porcelain=$(git worktree list --porcelain)
 
     # List existing worktree branch names
-    git worktree list --porcelain | awk '
+    local existing
+    existing=$(echo "$worktree_porcelain" | awk '
         /^branch / {
             branch=$2
             sub(/^refs\/heads\//, "", branch)
             print branch
         }
-    '
+    ')
+    echo "$existing"
 
     # List remote branches not yet checked out as worktrees
-    local existing
-    existing=$(git worktree list --porcelain | awk '/^branch /{sub(/^refs\/heads\//, "", $2); print $2}')
     git branch -r --format='%(refname:short)' | sed 's|^origin/||' | while read -r branch; do
         [[ "$branch" == "HEAD" ]] && continue
         echo "$existing" | grep -Fxq "$branch" && continue
@@ -543,15 +549,15 @@ fi
 case $command in
     open)
         if [[ $# -eq 0 ]]; then
-            # If inside a git repo with worktrees, list branches for fzf
-            if git rev-parse --show-toplevel &>/dev/null && [[ $(git worktree list 2>/dev/null | wc -l) -gt 1 || -f "$(git rev-parse --show-toplevel)/.git" ]]; then
+            # If inside a git worktree, list branches for fzf
+            if git rev-parse --show-toplevel &>/dev/null && [[ $(git worktree list 2>/dev/null | wc -l) -gt 1 ]] && [[ -f "$(git rev-parse --show-toplevel)/.git" || "$(git rev-parse --absolute-git-dir 2>/dev/null)" == *"/worktrees/"* ]]; then
                 selected_branch=$(list_worktree_branches | fzf)
                 [[ -z $selected_branch ]] && exit 0
                 cmd_worktree_create "$selected_branch" "false"
                 exit 0
             fi
             # Default: find git projects with fzf
-            target_path=$(find "$(pwd)" -maxdepth 3 -name ".git" \( -type d -o -type f \) -exec dirname {} \; 2>/dev/null | sort -u | fzf)
+            target_path=$(find "$(pwd)" -maxdepth 3 -name ".git" \( -type d -o -type f \) 2>/dev/null | sed 's|/\.git$||' | sort -u | fzf)
             [[ -z $target_path ]] && exit 0
         else
             target_path=$(realpath "$1" 2>/dev/null)
