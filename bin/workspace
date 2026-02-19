@@ -309,7 +309,7 @@ backend_session_exists() {
     local name="$1"
     case "$WORKSPACE_MODE" in
         tmux) tmux has-session -t="$name" 2>/dev/null ;;
-        kitty) kitten @ ls 2>/dev/null | grep -q "\"title\": \"$name\"" 2>/dev/null ;;
+        kitty) kitten @ ls 2>/dev/null | grep -q "\"title\": \"$name\"" ;;
         *) return 1 ;;
     esac
 }
@@ -336,7 +336,7 @@ backend_attach_session() {
             fi
             ;;
         kitty)
-            kitten @ focus-tab --match "title:$name" 2>/dev/null || true
+            kitten @ focus-tab --match "title:$name" || true
             ;;
         ghostty)
             # Tab is already focused after creation
@@ -359,7 +359,7 @@ backend_kill_session() {
         kitty)
             if kitten @ ls 2>/dev/null | grep -q "\"title\": \"$name\""; then
                 echo "Closing Kitty tab: $name"
-                kitten @ close-tab --match "title:$name" 2>/dev/null || true
+                kitten @ close-tab --match "title:$name" || true
             fi
             ;;
         ghostty)
@@ -392,7 +392,7 @@ backend_send_keys() {
     local session="$1" command="$2"
     case "$WORKSPACE_MODE" in
         tmux) tmux send-keys -t "$session" "$command" C-m ;;
-        kitty) kitten @ send-text --match "title:$session" "$command\n" 2>/dev/null ;;
+        kitty) kitten @ send-text --match "title:$session" "$command\n" ;;
         ghostty) echo "Note: Run 'workspace worktree setup' manually in the Ghostty tab" ;;
         alacritty) echo "Note: Run 'workspace worktree setup' manually in the Alacritty window" ;;
     esac
@@ -496,7 +496,10 @@ kitty_open_tab() {
         env_args+=(--env "${env_key}=${env_value}")
     done
 
-    kitten @ launch --type=tab --tab-title "$name" --cwd "$dir" "${env_args[@]}" 2>/dev/null
+    if ! kitten @ launch --type=tab --tab-title "$name" --cwd "$dir" "${env_args[@]}"; then
+        echo "Error: Failed to open Kitty tab. Ensure 'allow_remote_control yes' is set in ~/.config/kitty/kitty.conf"
+        return 1
+    fi
 }
 
 alacritty_open_window() {
