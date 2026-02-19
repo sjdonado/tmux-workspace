@@ -1,6 +1,6 @@
 # workspace
 
-A terminal session manager and Git worktree tool with fzf switching, automatic .env copying, and configurable setup commands for fast parallel worktrees. Supports tmux and Ghostty with automatic detection.
+A terminal session manager and Git worktree tool with fzf switching, automatic .env copying, and configurable setup commands for fast parallel worktrees. Supports tmux, Ghostty, and Alacritty with automatic detection.
 
 ## Install
 
@@ -18,7 +18,7 @@ To update, run the same command again.
 ### Requirements
 
 - [git](https://git-scm.com)
-- [tmux](https://github.com/tmux/tmux) or [Ghostty](https://ghostty.org) (at least one)
+- [tmux](https://github.com/tmux/tmux), [Ghostty](https://ghostty.org), or [Alacritty](https://alacritty.org) (at least one)
 - [fzf](https://github.com/junegunn/fzf) (optional, for interactive project selection)
 
 ## Usage
@@ -59,7 +59,7 @@ workspace remove feature/old-feature
 
 ### Worktree mode
 
-Create a worktree for a feature branch (opens in a new tmux session or Ghostty tab):
+Create a worktree for a feature branch (opens in a new tmux session, Ghostty tab, or Alacritty window):
 
 ```sh
 workspace worktree create feature/user-auth
@@ -123,6 +123,7 @@ Workspace auto-detects the terminal backend:
 |------|-----------|----------|
 | **tmux** | Inside a tmux session (`$TMUX` set) | Sessions, layouts, panes, env forwarding |
 | **Ghostty** | Ghostty terminal (`$TERM_PROGRAM`) | Opens new tabs via `open -a Ghostty` (macOS) or `ghostty` CLI (Linux) |
+| **Alacritty** | Alacritty terminal (`$TERM_PROGRAM` or `$ALACRITTY_SOCKET`) | Opens new windows via `alacritty msg create-window` (IPC) or `alacritty` CLI (fallback) |
 
 ## Commands
 

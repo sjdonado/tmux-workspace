@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] - 2026-02-19
+
+### Added
+
+- Alacritty terminal support: auto-detected via `$TERM_PROGRAM` or `$ALACRITTY_SOCKET` environment variables
+- New window creation via `alacritty msg create-window` (IPC, same process) when socket is available, falling back to launching a new `alacritty` process
+- Alacritty mode has the same limitations as Ghostty mode: no pane layouts, no environment variable forwarding, no send-keys, no programmatic window queries or close
+
 ## [1.1.0] - 2025-02-19
 
 ### Added

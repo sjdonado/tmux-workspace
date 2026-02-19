@@ -1,4 +1,4 @@
-.TH workspace 1 "February 2025" "workspace 1.1" "User Commands"
+.TH workspace 1 "February 2026" "workspace 1.2" "User Commands"
 .SH NAME
 workspace \- manage terminal sessions and git worktrees
 .SH SYNOPSIS
@@ -41,13 +41,15 @@ workspace \- manage terminal sessions and git worktrees
 .B \-\-version
 .SH DESCRIPTION
 .B workspace
-is a unified tool for managing terminal sessions and git worktrees. It auto-detects the terminal environment and operates in one of three modes:
+is a unified tool for managing terminal sessions and git worktrees. It auto-detects the terminal environment and operates in one of four modes:
 .B tmux mode
 (inside a tmux session),
 .B ghostty mode
-(running in Ghostty terminal without tmux), or
+(running in Ghostty terminal without tmux),
+.B alacritty mode
+(running in Alacritty terminal without tmux), or
 .B unsupported
-(neither detected).
+(none detected).
 .PP
 The tool provides two operational modes:
 .B sessionizer mode
@@ -89,10 +91,33 @@ No send-keys support (\-\-setup prompts the user to run \fBworkspace worktree se
 Tabs cannot be closed programmatically (user must close manually)
 .RE
 .TP
+.B alacritty mode
+Active when
+.B TERM_PROGRAM
+is set to "alacritty" or the
+.B ALACRITTY_SOCKET
+environment variable is present, and not inside tmux. Uses Alacritty windows instead of tmux sessions. When an existing IPC socket is available (via
+.BR ALACRITTY_SOCKET ),
+new windows are created in the same Alacritty process using
+.BR "alacritty msg create-window" ;
+otherwise, a new Alacritty process is launched. This mode has the same reduced functionality as Ghostty mode:
+.RS
+.IP \(bu 2
+No pane layout support (WORKSPACE_INTERNAL_LAYOUT is ignored)
+.IP \(bu 2
+No environment variable forwarding (worktree_* variables are not set in windows)
+.IP \(bu 2
+No programmatic window queries (prune cannot detect active windows)
+.IP \(bu 2
+No send-keys support (\-\-setup prompts the user to run \fBworkspace worktree setup\fR manually)
+.IP \(bu 2
+Windows cannot be closed programmatically (user must close manually)
+.RE
+.TP
 .B unsupported
-When neither tmux nor Ghostty is detected, terminal-dependent commands (open, close) will fail with an error. Git-only commands (worktree remove, worktree prune) still work.
+When no supported terminal is detected, terminal-dependent commands (open, close) will fail with an error. Git-only commands (worktree remove, worktree prune) still work.
 .PP
-If tmux is running inside Ghostty, tmux mode takes priority.
+If tmux is running inside Ghostty or Alacritty, tmux mode takes priority.
 .SH MODES
 .TP
 .B Sessionizer Mode (Default)
@@ -130,7 +155,7 @@ Managing worktree lifecycle (creation, pruning)
 .SS Common Commands (Both Modes)
 .TP
 .BI "open " [path]
-Open an existing directory in a terminal session (tmux session or Ghostty tab). If no path is provided, the behavior depends on context:
+Open an existing directory in a terminal session (tmux session, Ghostty tab, or Alacritty window). If no path is provided, the behavior depends on context:
 .RS
 .IP \(bu 2
 .B Inside a git worktree:
@@ -141,12 +166,12 @@ Uses fzf to list all existing worktree branches and remote branches. On selectio
 Uses fzf to interactively select from git projects (repositories and worktrees) found up to 3 levels deep from the current directory.
 .RE
 .IP
-In tmux mode, if a session for the directory already exists, attaches to it (or switches to it if already inside tmux). Otherwise, creates a new session with the configured layout. In Ghostty mode, always opens a new tab (existing tabs cannot be queried).
+In tmux mode, if a session for the directory already exists, attaches to it (or switches to it if already inside tmux). Otherwise, creates a new session with the configured layout. In Ghostty mode, always opens a new tab (existing tabs cannot be queried). In Alacritty mode, always opens a new window (existing windows cannot be queried).
 .IP
 Session names are derived from the directory path. If the target is within the current directory, the relative path is used; otherwise, the basename is used. Dots and slashes are replaced with underscores for tmux compatibility.
 .TP
 .BI "close " [session_name]
-Close the specified session. In tmux mode, kills the tmux session. In Ghostty mode, prints a message to close the tab manually. If
+Close the specified session. In tmux mode, kills the tmux session. In Ghostty mode, prints a message to close the tab manually. In Alacritty mode, prints a message to close the window manually. If
 .I session_name
 is omitted, auto-detects from the current environment. An error is returned if no terminal backend is detected.
 .TP
@@ -171,14 +196,14 @@ Print the version number and exit. Also accepts
 .SS Worktree Subcommands (workspace worktree <subcommand>)
 .TP
 .BI "create " "[--setup] branch_name"
-Create a new git worktree for the specified branch and open a terminal session (tmux session or Ghostty tab). The worktree is created as a sibling directory to the main repository. The tool automatically:
+Create a new git worktree for the specified branch and open a terminal session (tmux session, Ghostty tab, or Alacritty window). The worktree is created as a sibling directory to the main repository. The tool automatically:
 .RS
 .IP \(bu 2
 Fetches latest changes from remote
 .IP \(bu 2
 Creates a worktree from a remote branch if it exists on origin, or creates a new local branch
 .IP \(bu 2
-Sets up a terminal session with the configured layout (tmux only)
+Sets up a terminal session with the configured layout (tmux only; Ghostty/Alacritty open a tab/window)
 .IP \(bu 2
 Copies .env and .pem files from the parent repository
 .IP \(bu 2
@@ -197,20 +222,20 @@ Fast-forwards if possible
 Warns if the branch has diverged from remote
 .RE
 .IP
-Any existing session for the branch is closed and recreated with the current layout configuration (tmux) or a new tab is opened (Ghostty).
+Any existing session for the branch is closed and recreated with the current layout configuration (tmux), a new tab is opened (Ghostty), or a new window is opened (Alacritty).
 .IP
 Use the
 .B \-\-setup
 flag to run the command specified in
 .B WORKSPACE_INTERNAL_SETUP_CMD
-after creating the worktree. In tmux mode, the command is sent to the first pane. In Ghostty mode, the user is prompted to run
+after creating the worktree. In tmux mode, the command is sent to the first pane. In Ghostty and Alacritty modes, the user is prompted to run
 .B workspace worktree setup
-manually in the new tab.
+manually in the new tab/window.
 .TP
 .B setup
 Run the command specified in
 .B WORKSPACE_INTERNAL_SETUP_CMD
-in the current worktree. This is useful for manually running setup after opening a worktree, especially in Ghostty mode where send-keys is not available.
+in the current worktree. This is useful for manually running setup after opening a worktree, especially in Ghostty and Alacritty modes where send-keys is not available.
 .TP
 .BI "remove " [branch_name]
 Remove the git worktree for the specified branch. If
@@ -218,7 +243,7 @@ Remove the git worktree for the specified branch. If
 is omitted, uses the current branch. Protected branches (main, master, _main, _master) cannot be removed. Any processes holding files in the worktree directory are automatically terminated.
 .TP
 .BI "prune " [--force]
-Remove all worktrees that have no active session. In Ghostty mode, active tabs cannot be detected, so the tool relies on the clean-working-tree check as a safety net. By default, worktrees with uncommitted changes are skipped. This command preserves:
+Remove all worktrees that have no active session. In Ghostty and Alacritty modes, active tabs/windows cannot be detected, so the tool relies on the clean-working-tree check as a safety net. By default, worktrees with uncommitted changes are skipped. This command preserves:
 .RS
 .IP \(bu 2
 The main worktree
@@ -283,7 +308,7 @@ Command to run when
 .B \-\-setup
 is specified during worktree creation, or when
 .B workspace worktree setup
-is invoked directly. In tmux mode with \-\-setup, the command is sent as keystrokes to the first pane. In Ghostty mode, the user is prompted to run
+is invoked directly. In tmux mode with \-\-setup, the command is sent as keystrokes to the first pane. In Ghostty and Alacritty modes, the user is prompted to run
 .B workspace worktree setup
 manually. Typically used for installing dependencies or running build commands.
 .IP
@@ -299,13 +324,18 @@ will be set in the session environment with the prefix removed (tmux only). For 
 .B worktree_API_KEY
 becomes
 .B API_KEY
-in the tmux session. In Ghostty mode, these variables are not forwarded.
+in the tmux session. In Ghostty and Alacritty modes, these variables are not forwarded.
 .TP
 .B TMUX
 Set automatically by tmux. When present, the tool operates in tmux mode.
 .TP
 .B TERM_PROGRAM
-Used to detect Ghostty terminal. When set to "ghostty" and TMUX is not set, the tool operates in Ghostty mode.
+Used to detect Ghostty and Alacritty terminals. When set to "ghostty" and TMUX is not set, the tool operates in Ghostty mode. When set to "alacritty" and TMUX is not set, the tool operates in Alacritty mode.
+.TP
+.B ALACRITTY_SOCKET
+Set automatically by Alacritty to the path of its IPC Unix socket. Used as a fallback for Alacritty detection when TERM_PROGRAM is not set. When present, enables efficient window creation via
+.B alacritty msg create-window
+(windows share the same Alacritty process).
 .SH FILES
 .TP
 .I .env
@@ -439,8 +469,12 @@ file pointing to parent repository).
 .TP
 .B Terminal (one required):
 .BR tmux (1)
-(full functionality) or
-Ghostty terminal (reduced functionality, see TERMINAL DETECTION)
+(full functionality),
+Ghostty terminal (reduced functionality, see TERMINAL DETECTION), or
+.UR https://alacritty.org
+Alacritty
+.UE
+terminal (reduced functionality, see TERMINAL DETECTION)
 .TP
 .B Optional:
 .BR fzf (1)
@@ -457,6 +491,8 @@ Error (missing branch name, protected branch removal, worktree not found, invali
 .SH SEE ALSO
 .BR git-worktree (1),
 .BR tmux (1),
+.BR alacritty (1),
+.BR alacritty-msg (1),
 .BR fzf (1),
 .BR fish (1),
 .BR zsh (1)

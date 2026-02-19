@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 
-# Terminal mode detection (tmux > ghostty > none)
+# Terminal mode detection (tmux > ghostty > alacritty > none)
 if [[ -n "$TMUX" ]]; then
     WORKSPACE_MODE="tmux"
 elif [[ "$TERM_PROGRAM" == "ghostty" ]]; then
     WORKSPACE_MODE="ghostty"
+elif [[ "$TERM_PROGRAM" == "alacritty" ]] || [[ -n "$ALACRITTY_SOCKET" ]]; then
+    WORKSPACE_MODE="alacritty"
 else
     WORKSPACE_MODE="none"
 fi
@@ -34,7 +36,7 @@ cmd_usage() {
     echo "                          Remove all unused worktrees"
     echo "                          --force: Also remove worktrees with uncommitted changes"
     echo ""
-    echo "Detected mode: $WORKSPACE_MODE (tmux|ghostty|none)"
+    echo "Detected mode: $WORKSPACE_MODE (tmux|ghostty|alacritty|none)"
     exit 0
 }
 
@@ -296,7 +298,7 @@ cmd_worktree_create() {
 require_terminal_backend() {
     if [[ "$WORKSPACE_MODE" == "none" ]]; then
         echo "Error: No supported terminal detected."
-        echo "Run inside tmux or use Ghostty terminal."
+        echo "Run inside tmux, Ghostty, or Alacritty terminal."
         exit 1
     fi
 }
@@ -315,6 +317,7 @@ backend_create_session() {
     case "$WORKSPACE_MODE" in
         tmux) create_tmux_layout "$name" "$work_dir" ;;
         ghostty) ghostty_open_tab "$work_dir" ;;
+        alacritty) alacritty_open_window "$work_dir" ;;
     esac
 }
 
@@ -330,6 +333,9 @@ backend_attach_session() {
             ;;
         ghostty)
             # Tab is already focused after creation
+            ;;
+        alacritty)
+            # Window is already focused after creation
             ;;
     esac
 }
@@ -347,13 +353,17 @@ backend_kill_session() {
             echo "Warning: Cannot close Ghostty tabs programmatically. Close the '$name' tab manually."
             return 1
             ;;
+        alacritty)
+            echo "Warning: Cannot close Alacritty windows programmatically. Close the '$name' window manually."
+            return 1
+            ;;
     esac
 }
 
 backend_current_session_name() {
     case "$WORKSPACE_MODE" in
         tmux) tmux display-message -p '#S' ;;
-        ghostty) basename "$(pwd)" ;;
+        ghostty|alacritty) basename "$(pwd)" ;;
     esac
 }
 
@@ -369,6 +379,7 @@ backend_send_keys() {
     case "$WORKSPACE_MODE" in
         tmux) tmux send-keys -t "$session" "$command" C-m ;;
         ghostty) echo "Note: Run 'workspace worktree setup' manually in the Ghostty tab" ;;
+        alacritty) echo "Note: Run 'workspace worktree setup' manually in the Alacritty window" ;;
     esac
 }
 
@@ -455,6 +466,16 @@ ghostty_open_tab() {
             return 1
             ;;
     esac
+}
+
+alacritty_open_window() {
+    local dir="$1"
+    if [[ -n "$ALACRITTY_SOCKET" ]]; then
+        alacritty msg create-window --working-directory "$dir"
+    else
+        alacritty --working-directory "$dir" &
+        disown
+    fi
 }
 
 copy_env_files() {
@@ -623,7 +644,7 @@ case $command in
             target_path=$1
         else
             if [[ "$WORKSPACE_MODE" == "none" ]]; then
-                echo "Error: Not in a tmux session or Ghostty terminal, and no session name provided"
+                echo "Error: Not in a tmux session, Ghostty, or Alacritty terminal, and no session name provided"
                 exit 1
             fi
             target_path=$(backend_current_session_name)
