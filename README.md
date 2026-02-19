@@ -71,6 +71,12 @@ Create with automatic setup (runs `$WORKSPACE_INTERNAL_SETUP_CMD`):
 workspace worktree create --setup feature/api-refactor
 ```
 
+Run the setup command in the current worktree:
+
+```sh
+workspace worktree setup
+```
+
 Clean up all unused worktrees:
 
 ```sh
@@ -125,6 +131,7 @@ workspace open [path]                        Open directory in new session/tab (
 workspace close [session_name]               Close session/tab
 workspace remove [branch_name]               Close session and remove git worktree
 workspace worktree create [--setup] <branch> Create git worktree + session/tab
+workspace worktree setup                     Run $WORKSPACE_INTERNAL_SETUP_CMD in current worktree
 workspace worktree remove [branch_name]      Remove git worktree
 workspace worktree prune [--force]           Remove all unused worktrees
 workspace help                               Show usage

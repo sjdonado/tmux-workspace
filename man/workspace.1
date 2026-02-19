@@ -1,4 +1,4 @@
-.TH workspace 1 "February 2025" "workspace 1.0" "User Commands"
+.TH workspace 1 "February 2025" "workspace 1.1" "User Commands"
 .SH NAME
 workspace \- manage terminal sessions and git worktrees
 .SH SYNOPSIS
@@ -19,6 +19,10 @@ workspace \- manage terminal sessions and git worktrees
 .B create
 .RB [ \-\-setup ]
 .I branch_name
+.br
+.B workspace
+.B worktree
+.B setup
 .br
 .B workspace
 .B worktree
@@ -80,7 +84,7 @@ No environment variable forwarding (worktree_* variables are not set in tabs)
 .IP \(bu 2
 No programmatic tab queries (prune cannot detect active tabs)
 .IP \(bu 2
-No send-keys support (\-\-setup prints the command instead of executing it)
+No send-keys support (\-\-setup prompts the user to run \fBworkspace worktree setup\fR manually)
 .IP \(bu 2
 Tabs cannot be closed programmatically (user must close manually)
 .RE
@@ -199,7 +203,14 @@ Use the
 .B \-\-setup
 flag to run the command specified in
 .B WORKSPACE_INTERNAL_SETUP_CMD
-after creating the worktree. In tmux mode, the command is sent to the first pane. In Ghostty mode, the command is printed for manual execution.
+after creating the worktree. In tmux mode, the command is sent to the first pane. In Ghostty mode, the user is prompted to run
+.B workspace worktree setup
+manually in the new tab.
+.TP
+.B setup
+Run the command specified in
+.B WORKSPACE_INTERNAL_SETUP_CMD
+in the current worktree. This is useful for manually running setup after opening a worktree, especially in Ghostty mode where send-keys is not available.
 .TP
 .BI "remove " [branch_name]
 Remove the git worktree for the specified branch. If
@@ -268,9 +279,13 @@ Each comma-separated segment creates a new tmux window. The first pane of the fi
 .RE
 .TP
 .B WORKSPACE_INTERNAL_SETUP_CMD
-Command to run after creating a new worktree when
+Command to run when
 .B \-\-setup
-is specified. In tmux mode, the command is sent as keystrokes to the first pane. In Ghostty mode, the command is printed for manual execution. Typically used for installing dependencies or running build commands.
+is specified during worktree creation, or when
+.B workspace worktree setup
+is invoked directly. In tmux mode with \-\-setup, the command is sent as keystrokes to the first pane. In Ghostty mode, the user is prompted to run
+.B workspace worktree setup
+manually. Typically used for installing dependencies or running build commands.
 .IP
 .B Example:
 export WORKSPACE_INTERNAL_SETUP_CMD="pnpm i && pnpm build"
@@ -330,6 +345,9 @@ Create a worktree for a feature branch:
 .TP
 Create worktree and run setup commands:
 .B workspace worktree create \-\-setup feature/api-refactor
+.TP
+Run setup command in the current worktree:
+.B workspace worktree setup
 .TP
 Open an existing worktree:
 .B workspace open

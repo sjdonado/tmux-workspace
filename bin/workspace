@@ -29,6 +29,7 @@ cmd_usage() {
     echo "                          --setup: Run \$WORKSPACE_INTERNAL_SETUP_CMD after create"
     echo "  worktree remove [branch_name]"
     echo "                          Remove git worktree (auto-detects if omitted)"
+    echo "  worktree setup          Run \$WORKSPACE_INTERNAL_SETUP_CMD in current worktree"
     echo "  worktree prune [--force]"
     echo "                          Remove all unused worktrees"
     echo "                          --force: Also remove worktrees with uncommitted changes"
@@ -189,6 +190,15 @@ cmd_worktree_remove() {
     fi
 
     kill_stray_processes "$abs"
+}
+
+cmd_worktree_setup() {
+    if [[ -z "${WORKSPACE_INTERNAL_SETUP_CMD}" ]]; then
+        echo "Error: WORKSPACE_INTERNAL_SETUP_CMD is not set"
+        exit 1
+    fi
+    echo "Running setup: ${WORKSPACE_INTERNAL_SETUP_CMD}"
+    eval "${WORKSPACE_INTERNAL_SETUP_CMD}"
 }
 
 cmd_worktree_create() {
@@ -358,7 +368,7 @@ backend_send_keys() {
     local session="$1" command="$2"
     case "$WORKSPACE_MODE" in
         tmux) tmux send-keys -t "$session" "$command" C-m ;;
-        ghostty) echo "Note: Run manually in the Ghostty tab: $command" ;;
+        ghostty) echo "Note: Run 'workspace worktree setup' manually in the Ghostty tab" ;;
     esac
 }
 
@@ -619,6 +629,13 @@ case $command in
             target_path=$(backend_current_session_name)
         fi
         cmd_close "$target_path"
+        ;;
+    setup)
+        if ! $worktree_mode; then
+            echo "Error: 'setup' command only available in worktree mode (use 'worktree setup')"
+            cmd_usage
+        fi
+        cmd_worktree_setup
         ;;
     prune)
         if ! $worktree_mode; then
